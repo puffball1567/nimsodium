@@ -66,3 +66,17 @@ When adding a workflow:
 6. Update this matrix.
 
 Tests should assert that authentication failures never return plaintext.
+
+## Pre-1.0 Hardening Targets
+
+Before `v1.0`, test coverage should grow beyond the current single integration
+test file:
+
+- split workflow suites into focused test files
+- add more upstream known-answer tests where stable vectors exist
+- add interoperability fixtures for stored formats that can be produced or read
+  by other libsodium bindings
+- keep adding negative tests for malformed headers, nonces, salts, tags,
+  ciphertext truncation, wrong keys, and wrong associated data
+- add secure-memory lifecycle tests if key storage moves to libsodium secure
+  heap allocation

@@ -6,12 +6,8 @@
 type
   Sodium* = object  # namespace marker (zero-size)
   CRYPTO_ALIGN* {.importc, incompleteStruct.} = object
-  crypto_auth_hmacsha256_state* {.importc: "crypto_auth_hmacsha256_state", bycopy.} = object
-    ictx*: cint
-    octx*: cint
-  crypto_auth_hmacsha512_state* {.importc: "crypto_auth_hmacsha512_state", bycopy.} = object
-    ictx*: cint
-    octx*: cint
+  crypto_auth_hmacsha256_state* {.importc: "crypto_auth_hmacsha256_state", incompleteStruct.} = object
+  crypto_auth_hmacsha512_state* {.importc: "crypto_auth_hmacsha512_state", incompleteStruct.} = object
   crypto_hash_sha256_state* {.importc: "crypto_hash_sha256_state", bycopy.} = object
     state*: array[8, uint32]
     count*: uint64
@@ -20,10 +16,7 @@ type
     state*: array[8, uint64]
     count*: array[2, uint64]
     buf*: array[128, uint8]
-  crypto_secretstream_xchacha20poly1305_state* {.importc: "crypto_secretstream_xchacha20poly1305_state", bycopy.} = object
-    k*: uint8
-    nonce*: uint8
-    pad* {.importc: "_pad".}: array[8, uint8]
+  crypto_secretstream_xchacha20poly1305_state* {.importc: "crypto_secretstream_xchacha20poly1305_state", incompleteStruct.} = object
   crypto_sign_ed25519ph_state* {.importc: "crypto_sign_ed25519ph_state", bycopy.} = object
     hs*: crypto_hash_sha512_state
   randombytes_implementation* {.importc: "randombytes_implementation", bycopy.} = object
@@ -34,9 +27,9 @@ type
     buf*: pointer
     close*: pointer
   crypto_auth_hmacsha512256_state* = crypto_auth_hmacsha512_state
-  crypto_generichash_state* = cint
-  crypto_onetimeauth_state* = cint
-  crypto_sign_state* = cint
+  crypto_generichash_state* {.importc: "crypto_generichash_state", incompleteStruct.} = object
+  crypto_onetimeauth_state* {.importc: "crypto_onetimeauth_state", incompleteStruct.} = object
+  crypto_sign_state* {.importc: "crypto_sign_state", incompleteStruct.} = object
 
 # Macros (object-like)
 const

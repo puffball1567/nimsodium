@@ -1,6 +1,6 @@
 # nimsodium
 
-`nimsodium` is the safe default libsodium wrapper for Nim applications.
+`nimsodium` is a workflow-safe high-level libsodium wrapper for Nim applications.
 
 Translations: [日本語](docs/README.ja.md), [Français](docs/README.fr.md),
 [Deutsch](docs/README.de.md), [中文](docs/README.zh.md),
@@ -21,7 +21,7 @@ buffers and return codes private.
 
 ## Why nimsodium?
 
-- Safe by default: nonces are generated internally and stored with ciphertexts.
+- Safer workflows: nonces are generated internally and stored with ciphertexts.
 - Misuse-resistant API: key material uses distinct Nim types instead of plain
   strings at public call sites.
 - Practical coverage: passwords, tokens, AEAD, file encryption, public-key
@@ -272,6 +272,10 @@ Current limitations:
   code may have already made copies.
 - Key values use distinct public types for supported high-level key material.
   Use `rawBytes` only when an application needs to persist or transmit a key.
+- Current key types are backed by Nim GC-managed strings. They reduce accidental
+  API misuse with distinct types, but they do not yet use `sodium_malloc`,
+  `sodium_mlock`, guard pages, or deterministic zero-on-drop storage. Treat
+  this as a pre-`v1.0` hardening item, not as secure enclave-like key storage.
 
 Production checklist:
 

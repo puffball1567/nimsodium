@@ -218,6 +218,11 @@ suite "password":
     check verifyPassword(hash, "correct horse battery staple")
     check not verifyPassword(hash, "wrong password")
 
+  test "password hash profile can request stronger rehash":
+    let hash = hashPassword("correct horse battery staple", phpInteractive)
+    check not needsRehashPassword(hash, phpInteractive)
+    check needsRehashPassword(hash, phpModerate)
+
   test "passwords are length-aware":
     let password = "abc" & '\0' & "def"
     let hash = hashPassword(password)
