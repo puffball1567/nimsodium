@@ -1,5 +1,5 @@
 import ./errors
-import ./private/internal/[bytes, init]
+import ./private/internal/[bytes, init, secure_bytes]
 import ./private/raw/sodium
 
 const
@@ -9,13 +9,16 @@ const
 
 type
   KeyExchangePublicKey* = distinct string
-  KeyExchangeSecretKey* = distinct string
+  KeyExchangeSecretKey* = object
+    bytes: SecureBytes
   KeyExchangeKeyPair* = object
     publicKey*: KeyExchangePublicKey
     secretKey*: KeyExchangeSecretKey
 
-  ReceiveSessionKey* = distinct string
-  TransmitSessionKey* = distinct string
+  ReceiveSessionKey* = object
+    bytes: SecureBytes
+  TransmitSessionKey* = object
+    bytes: SecureBytes
   SessionKeys* = object
     receiveKey*: ReceiveSessionKey
     transmitKey*: TransmitSessionKey
@@ -26,15 +29,23 @@ proc rawBytes*(key: KeyExchangePublicKey): string =
 
 proc rawBytes*(key: KeyExchangeSecretKey): string =
   ## Returns the raw bytes for storage by the application.
-  string(key)
+  secure_bytes.rawBytes(key.bytes)
 
 proc rawBytes*(key: ReceiveSessionKey): string =
   ## Returns the raw bytes for use as symmetric key material.
-  string(key)
+  secure_bytes.rawBytes(key.bytes)
 
 proc rawBytes*(key: TransmitSessionKey): string =
   ## Returns the raw bytes for use as symmetric key material.
-  string(key)
+  secure_bytes.rawBytes(key.bytes)
+
+proc secretBytes(key: KeyExchangeSecretKey): SecureBytes =
+  if key.bytes.len != KeyExchangeSecretKeyBytes:
+    raise newException(
+      InvalidKeyError,
+      "key exchange secret key must be " & $KeyExchangeSecretKeyBytes & " bytes"
+    )
+  key.bytes
 
 proc keyExchangePublicKeyFromBytes*(key: string): KeyExchangePublicKey =
   ## Wraps an existing key exchange public key.
@@ -52,23 +63,24 @@ proc keyExchangeSecretKeyFromBytes*(key: string): KeyExchangeSecretKey =
       InvalidKeyError,
       "key exchange secret key must be " & $KeyExchangeSecretKeyBytes & " bytes"
     )
-  KeyExchangeSecretKey(key)
+  KeyExchangeSecretKey(bytes: secureBytesFromBytes(key))
 
 proc generateKeyExchangeKeyPair*(): KeyExchangeKeyPair =
   ## Returns a new key pair for deriving client/server session keys.
   init.ensureInitialized()
 
   var publicKey = newString(KeyExchangePublicKeyBytes)
-  var secretKey = newString(KeyExchangeSecretKeyBytes)
+  var secretKey = newSecureBytes(KeyExchangeSecretKeyBytes)
   let rc = sodium.Sodium.crypto_kx_keypair(
     bytes.unsafeCString(publicKey),
-    bytes.unsafeCString(secretKey)
+    secure_bytes.unsafeCString(secretKey)
   )
   if rc != 0:
     raise newException(CryptoError, "key exchange key pair generation failed")
 
   result.publicKey = KeyExchangePublicKey(publicKey)
-  result.secretKey = KeyExchangeSecretKey(secretKey)
+  secretKey.protectReadOnly()
+  result.secretKey = KeyExchangeSecretKey(bytes: secretKey)
 
 proc clientSessionKeys*(
   clientPublicKey: KeyExchangePublicKey;
@@ -78,20 +90,23 @@ proc clientSessionKeys*(
   ## Derives receive/transmit keys for the client side of a connection.
   init.ensureInitialized()
 
-  var receiveKey = newString(KeyExchangeSessionKeyBytes)
-  var transmitKey = newString(KeyExchangeSessionKeyBytes)
+  let clientSecret = clientSecretKey.secretBytes()
+  var receiveKey = newSecureBytes(KeyExchangeSessionKeyBytes)
+  var transmitKey = newSecureBytes(KeyExchangeSessionKeyBytes)
   let rc = sodium.Sodium.crypto_kx_client_session_keys(
-    bytes.unsafeCString(receiveKey),
-    bytes.unsafeCString(transmitKey),
+    secure_bytes.unsafeCString(receiveKey),
+    secure_bytes.unsafeCString(transmitKey),
     bytes.unsafeCString(string(clientPublicKey)),
-    bytes.unsafeCString(string(clientSecretKey)),
+    secure_bytes.unsafeCString(clientSecret),
     bytes.unsafeCString(string(serverPublicKey))
   )
   if rc != 0:
     raise newException(CryptoError, "client key exchange failed")
 
-  result.receiveKey = ReceiveSessionKey(receiveKey)
-  result.transmitKey = TransmitSessionKey(transmitKey)
+  receiveKey.protectReadOnly()
+  transmitKey.protectReadOnly()
+  result.receiveKey = ReceiveSessionKey(bytes: receiveKey)
+  result.transmitKey = TransmitSessionKey(bytes: transmitKey)
 
 proc serverSessionKeys*(
   serverPublicKey: KeyExchangePublicKey;
@@ -101,17 +116,20 @@ proc serverSessionKeys*(
   ## Derives receive/transmit keys for the server side of a connection.
   init.ensureInitialized()
 
-  var receiveKey = newString(KeyExchangeSessionKeyBytes)
-  var transmitKey = newString(KeyExchangeSessionKeyBytes)
+  let serverSecret = serverSecretKey.secretBytes()
+  var receiveKey = newSecureBytes(KeyExchangeSessionKeyBytes)
+  var transmitKey = newSecureBytes(KeyExchangeSessionKeyBytes)
   let rc = sodium.Sodium.crypto_kx_server_session_keys(
-    bytes.unsafeCString(receiveKey),
-    bytes.unsafeCString(transmitKey),
+    secure_bytes.unsafeCString(receiveKey),
+    secure_bytes.unsafeCString(transmitKey),
     bytes.unsafeCString(string(serverPublicKey)),
-    bytes.unsafeCString(string(serverSecretKey)),
+    secure_bytes.unsafeCString(serverSecret),
     bytes.unsafeCString(string(clientPublicKey))
   )
   if rc != 0:
     raise newException(CryptoError, "server key exchange failed")
 
-  result.receiveKey = ReceiveSessionKey(receiveKey)
-  result.transmitKey = TransmitSessionKey(transmitKey)
+  receiveKey.protectReadOnly()
+  transmitKey.protectReadOnly()
+  result.receiveKey = ReceiveSessionKey(bytes: receiveKey)
+  result.transmitKey = TransmitSessionKey(bytes: transmitKey)

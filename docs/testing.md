@@ -78,5 +78,5 @@ test file:
   by other libsodium bindings
 - keep adding negative tests for malformed headers, nonces, salts, tags,
   ciphertext truncation, wrong keys, and wrong associated data
-- add secure-memory lifecycle tests if key storage moves to libsodium secure
-  heap allocation
+- keep secure-memory lifecycle tests aligned with libsodium secure heap key
+  storage

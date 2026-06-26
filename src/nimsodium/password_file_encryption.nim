@@ -1,6 +1,7 @@
 import std/[os, streams]
 
 import ./errors
+import ./memory
 import ./password_encryption
 import ./private/internal/[bytes, init]
 import ./private/raw/sodium
@@ -68,7 +69,8 @@ proc derivePasswordStreamKey(
   if rc != 0:
     raise newException(CryptoError, "password file key derivation failed")
 
-  streamKeyFromBytes(key)
+  result = streamKeyFromBytes(key)
+  secureClear(key)
 
 proc tempPathFor(outputPath: string): string =
   outputPath & "." & randomHex(8) & ".nimsodium.tmp"

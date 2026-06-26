@@ -1,6 +1,6 @@
 import ./encoding
 import ./errors
-import ./private/internal/[bytes, init]
+import ./private/internal/[bytes, init, secure_bytes]
 import ./private/raw/sodium
 import ./random
 
@@ -13,9 +13,11 @@ const
   BoxSealBytes* = sodium.crypto_box_SEALBYTES
 
 type
-  BoxSeed* = distinct string
+  BoxSeed* = object
+    bytes: SecureBytes
   BoxPublicKey* = distinct string
-  BoxSecretKey* = distinct string
+  BoxSecretKey* = object
+    bytes: SecureBytes
 
   BoxKeyPair* = object
     publicKey*: BoxPublicKey
@@ -27,11 +29,27 @@ proc rawBytes*(key: BoxPublicKey): string =
 
 proc rawBytes*(key: BoxSecretKey): string =
   ## Returns the raw bytes for storage by the application.
-  string(key)
+  secure_bytes.rawBytes(key.bytes)
 
 proc rawBytes*(seed: BoxSeed): string =
   ## Returns the raw seed bytes for storage by the application.
-  string(seed)
+  secure_bytes.rawBytes(seed.bytes)
+
+proc secretBytes(key: BoxSecretKey): SecureBytes =
+  if key.bytes.len != BoxSecretKeyBytes:
+    raise newException(
+      InvalidKeyError,
+      "box secret key must be " & $BoxSecretKeyBytes & " bytes"
+    )
+  key.bytes
+
+proc seedBytes(seed: BoxSeed): SecureBytes =
+  if seed.bytes.len != BoxSeedBytes:
+    raise newException(
+      InvalidKeyError,
+      "box seed must be " & $BoxSeedBytes & " bytes"
+    )
+  seed.bytes
 
 proc toHex*(key: BoxPublicKey): string =
   ## Encodes a box public key as hexadecimal.
@@ -39,11 +57,11 @@ proc toHex*(key: BoxPublicKey): string =
 
 proc toHex*(key: BoxSecretKey): string =
   ## Encodes a box secret key as hexadecimal.
-  encoding.toHex(string(key))
+  rawBytes(key).toHex()
 
 proc toHex*(seed: BoxSeed): string =
   ## Encodes a box seed as hexadecimal.
-  encoding.toHex(string(seed))
+  rawBytes(seed).toHex()
 
 proc boxPublicKeyFromBytes*(key: string): BoxPublicKey =
   ## Wraps an existing sealed-box public key.
@@ -61,7 +79,7 @@ proc boxSecretKeyFromBytes*(key: string): BoxSecretKey =
       InvalidKeyError,
       "box secret key must be " & $BoxSecretKeyBytes & " bytes"
     )
-  BoxSecretKey(key)
+  BoxSecretKey(bytes: secureBytesFromBytes(key))
 
 proc boxSeedFromBytes*(seed: string): BoxSeed =
   ## Wraps an existing box seed.
@@ -70,7 +88,7 @@ proc boxSeedFromBytes*(seed: string): BoxSeed =
       InvalidKeyError,
       "box seed must be " & $BoxSeedBytes & " bytes"
     )
-  BoxSeed(seed)
+  BoxSeed(bytes: secureBytesFromBytes(seed))
 
 proc boxPublicKeyFromHex*(hex: string): BoxPublicKey =
   ## Decodes a hexadecimal box public key.
@@ -86,38 +104,41 @@ proc boxSeedFromHex*(hex: string): BoxSeed =
 
 proc generateBoxSeed*(): BoxSeed =
   ## Returns a new seed for deterministic box key-pair generation.
-  BoxSeed(randomBytes(BoxSeedBytes))
+  BoxSeed(bytes: randomSecureBytes(BoxSeedBytes))
 
 proc generateBoxKeyPair*(): BoxKeyPair =
   ## Returns a new public-key encryption key pair.
   init.ensureInitialized()
 
   var publicKey = newString(BoxPublicKeyBytes)
-  var secretKey = newString(BoxSecretKeyBytes)
+  var secretKey = newSecureBytes(BoxSecretKeyBytes)
   let rc = sodium.Sodium.crypto_box_keypair(
     bytes.unsafeCString(publicKey),
-    bytes.unsafeCString(secretKey)
+    secure_bytes.unsafeCString(secretKey)
   )
   if rc != 0:
     raise newException(CryptoError, "box key pair generation failed")
   result.publicKey = BoxPublicKey(publicKey)
-  result.secretKey = BoxSecretKey(secretKey)
+  secretKey.protectReadOnly()
+  result.secretKey = BoxSecretKey(bytes: secretKey)
 
 proc generateBoxKeyPair*(seed: BoxSeed): BoxKeyPair =
   ## Returns the box key pair deterministically derived from a seed.
   init.ensureInitialized()
 
   var publicKey = newString(BoxPublicKeyBytes)
-  var secretKey = newString(BoxSecretKeyBytes)
+  let seedData = seed.seedBytes()
+  var secretKey = newSecureBytes(BoxSecretKeyBytes)
   let rc = sodium.Sodium.crypto_box_seed_keypair(
     bytes.unsafeCString(publicKey),
-    bytes.unsafeCString(secretKey),
-    bytes.unsafeCString(string(seed))
+    secure_bytes.unsafeCString(secretKey),
+    secure_bytes.unsafeCString(seedData)
   )
   if rc != 0:
     raise newException(CryptoError, "seeded box key pair generation failed")
   result.publicKey = BoxPublicKey(publicKey)
-  result.secretKey = BoxSecretKey(secretKey)
+  secretKey.protectReadOnly()
+  result.secretKey = BoxSecretKey(bytes: secretKey)
 
 proc sealBox(plaintext, publicKey: string): string =
   ## Encrypts data for a recipient public key using libsodium sealed boxes.
@@ -176,7 +197,22 @@ proc openBox(ciphertext, publicKey, secretKey: string): string =
 
 proc openBox*(ciphertext: string; publicKey: BoxPublicKey; secretKey: BoxSecretKey): string =
   ## Decrypts and verifies data using typed sealed-box keys.
-  openBox(ciphertext, string(publicKey), string(secretKey))
+  let secretData = secretKey.secretBytes()
+  init.ensureInitialized()
+
+  if ciphertext.len < BoxSealBytes:
+    raise newException(InvalidInputError, "sealed box ciphertext is too short")
+
+  result = newString(ciphertext.len - BoxSealBytes)
+  let rc = sodium.Sodium.crypto_box_seal_open(
+    bytes.unsafeCString(result),
+    bytes.unsafeCString(ciphertext),
+    culonglong(ciphertext.len),
+    bytes.unsafeCString(string(publicKey)),
+    secure_bytes.unsafeCString(secretData)
+  )
+  if rc != 0:
+    raise newException(CryptoError, "sealed box authentication failed")
 
 proc encryptBox(
     plaintext, recipientPublicKey, senderSecretKey: string
@@ -218,7 +254,23 @@ proc encryptBox*(
     senderSecretKey: BoxSecretKey
 ): string =
   ## Encrypts data to a recipient and authenticates the sender.
-  encryptBox(plaintext, string(recipientPublicKey), string(senderSecretKey))
+  let secretData = senderSecretKey.secretBytes()
+  init.ensureInitialized()
+
+  let nonce = randomBytes(BoxNonceBytes)
+  var sealed = newString(BoxMacBytes + plaintext.len)
+  let rc = sodium.Sodium.crypto_box_easy(
+    bytes.unsafeCString(sealed),
+    bytes.unsafeCString(plaintext),
+    culonglong(plaintext.len),
+    bytes.unsafeCString(nonce),
+    bytes.unsafeCString(string(recipientPublicKey)),
+    secure_bytes.unsafeCString(secretData)
+  )
+  if rc != 0:
+    raise newException(CryptoError, "authenticated box encryption failed")
+
+  nonce & sealed
 
 proc decryptBox(
     ciphertext, senderPublicKey, recipientSecretKey: string
@@ -259,4 +311,22 @@ proc decryptBox*(
     recipientSecretKey: BoxSecretKey
 ): string =
   ## Decrypts data using a sender public key and recipient secret key.
-  decryptBox(ciphertext, string(senderPublicKey), string(recipientSecretKey))
+  let secretData = recipientSecretKey.secretBytes()
+  init.ensureInitialized()
+
+  if ciphertext.len < BoxNonceBytes + BoxMacBytes:
+    raise newException(InvalidInputError, "authenticated box ciphertext is too short")
+
+  let nonce = ciphertext[0 ..< BoxNonceBytes]
+  let sealed = ciphertext[BoxNonceBytes .. ^1]
+  result = newString(sealed.len - BoxMacBytes)
+  let rc = sodium.Sodium.crypto_box_open_easy(
+    bytes.unsafeCString(result),
+    bytes.unsafeCString(sealed),
+    culonglong(sealed.len),
+    bytes.unsafeCString(nonce),
+    bytes.unsafeCString(string(senderPublicKey)),
+    secure_bytes.unsafeCString(secretData)
+  )
+  if rc != 0:
+    raise newException(CryptoError, "authenticated box verification failed")
