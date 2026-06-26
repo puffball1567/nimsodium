@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsodium-dev pkg-config
+
+      - name: Check libsodium
+        run: pkg-config --modversion libsodium
+
+      - name: Install Nim
+        run: |
+          curl https://nim-lang.org/choosenim/init.sh -sSf | sh -s -- -y
+          echo "$HOME/.nimble/bin" >> "$GITHUB_PATH"
+
+      - name: Check Nim
+        run: nim --version
+
+      - name: Check package metadata
+        run: nimble check
+
+      - name: Check library
+        run: |
+          nim check --path:src --nimcache:/tmp/nimsodium_nimcache src/nimsodium.nim
+          nim check --path:src --nimcache:/tmp/nimsodium_nimcache src/nimsodium/advanced.nim
+
+      - name: Run tests
+        run: nim c -r --path:src --nimcache:/tmp/nimsodium_nimcache tests/test_nimsodium.nim
+
+      - name: Compile examples
+        run: |
+          nim c -r --path:src --nimcache:/tmp/nimsodium_example_quickstart examples/quickstart.nim
+          nim c -r --path:src --nimcache:/tmp/nimsodium_example_passwords examples/passwords.nim
+          nim c -r --path:src --nimcache:/tmp/nimsodium_example_secret_data examples/secret_data.nim
+          nim c -r --path:src --nimcache:/tmp/nimsodium_example_public_key examples/public_key.nim
+          nim c -r --path:src --nimcache:/tmp/nimsodium_example_signatures examples/signatures.nim
+          nim c -r --path:src --nimcache:/tmp/nimsodium_example_authentication examples/authentication.nim
+          nim c -r --path:src --nimcache:/tmp/nimsodium_example_key_derivation examples/key_derivation.nim
+          nim c -r --path:src --nimcache:/tmp/nimsodium_example_file_encryption examples/file_encryption.nim
+          nim c -r --path:src --nimcache:/tmp/nimsodium_example_advanced examples/advanced.nim
+          nim c -r --path:src --nimcache:/tmp/nimsodium_example_tokens examples/tokens.nim
+          nim c -r --path:src --nimcache:/tmp/nimsodium_example_cleanup examples/cleanup.nim
+
+      - name: Generate API docs
+        run: |
+          nim doc --project --index:on --outdir:htmldocs --path:src src/nimsodium.nim
+          nim doc --outdir:htmldocs --path:src src/nimsodium/advanced.nim
