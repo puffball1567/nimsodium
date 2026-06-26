@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Make libsodium opaque state declarations incomplete structs instead of
+  incorrectly sized value objects.
+- Add selectable password hashing profiles while keeping the interactive
+  profile as the default.
+- Document the current GC-managed key storage limitation more explicitly.
+
 ## 0.2.0 - 2026-06-27
 
 - Add high-level password hashing and verification.

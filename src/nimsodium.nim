@@ -1,4 +1,4 @@
-## Small, safe-by-default wrapper around libsodium.
+## Small, workflow-safe wrapper around libsodium.
 ##
 ## This package intentionally exposes a compact high-level API instead of the
 ## complete libsodium surface.
