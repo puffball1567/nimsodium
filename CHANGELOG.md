@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.1 - Unreleased
+## 0.2.1 - 2026-06-27
 
 - Make libsodium opaque state declarations incomplete structs instead of
   incorrectly sized value objects.
