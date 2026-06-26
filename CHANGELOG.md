@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 - Unreleased
+## 0.2.0 - 2026-06-27
 
 - Add high-level password hashing and verification.
 - Add password-derived encryption that wraps password KDF, salt handling, and
