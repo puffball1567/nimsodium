@@ -1,8 +1,7 @@
 import ./encoding
 import ./errors
-import ./private/internal/[bytes, init]
+import ./private/internal/[bytes, init, secure_bytes]
 import ./private/raw/sodium
-import ./random
 
 const
   SigningPublicKeyBytes* = sodium.crypto_sign_PUBLICKEYBYTES
@@ -12,8 +11,10 @@ const
 
 type
   SigningPublicKey* = distinct string
-  SigningSecretKey* = distinct string
-  SigningSeed* = distinct string
+  SigningSecretKey* = object
+    bytes: SecureBytes
+  SigningSeed* = object
+    bytes: SecureBytes
 
   SigningKeyPair* = object
     publicKey*: SigningPublicKey
@@ -25,11 +26,27 @@ proc rawBytes*(key: SigningPublicKey): string =
 
 proc rawBytes*(key: SigningSecretKey): string =
   ## Returns the raw bytes for storage by the application.
-  string(key)
+  secure_bytes.rawBytes(key.bytes)
 
 proc rawBytes*(seed: SigningSeed): string =
   ## Returns the raw seed bytes for storage by the application.
-  string(seed)
+  secure_bytes.rawBytes(seed.bytes)
+
+proc secretBytes(key: SigningSecretKey): SecureBytes =
+  if key.bytes.len != SigningSecretKeyBytes:
+    raise newException(
+      InvalidKeyError,
+      "signing secret key must be " & $SigningSecretKeyBytes & " bytes"
+    )
+  key.bytes
+
+proc seedBytes(seed: SigningSeed): SecureBytes =
+  if seed.bytes.len != SigningSeedBytes:
+    raise newException(
+      InvalidKeyError,
+      "signing seed must be " & $SigningSeedBytes & " bytes"
+    )
+  seed.bytes
 
 proc toHex*(key: SigningPublicKey): string =
   ## Encodes a signing public key as hexadecimal.
@@ -37,11 +54,11 @@ proc toHex*(key: SigningPublicKey): string =
 
 proc toHex*(key: SigningSecretKey): string =
   ## Encodes a signing secret key as hexadecimal.
-  encoding.toHex(string(key))
+  rawBytes(key).toHex()
 
 proc toHex*(seed: SigningSeed): string =
   ## Encodes a signing seed as hexadecimal.
-  encoding.toHex(string(seed))
+  rawBytes(seed).toHex()
 
 proc signingPublicKeyFromBytes*(key: string): SigningPublicKey =
   ## Wraps an existing signing public key.
@@ -59,7 +76,7 @@ proc signingSecretKeyFromBytes*(key: string): SigningSecretKey =
       InvalidKeyError,
       "signing secret key must be " & $SigningSecretKeyBytes & " bytes"
     )
-  SigningSecretKey(key)
+  SigningSecretKey(bytes: secureBytesFromBytes(key))
 
 proc signingSeedFromBytes*(seed: string): SigningSeed =
   ## Wraps an existing signing seed.
@@ -68,7 +85,7 @@ proc signingSeedFromBytes*(seed: string): SigningSeed =
       InvalidKeyError,
       "signing seed must be " & $SigningSeedBytes & " bytes"
     )
-  SigningSeed(seed)
+  SigningSeed(bytes: secureBytesFromBytes(seed))
 
 proc signingPublicKeyFromHex*(hex: string): SigningPublicKey =
   ## Decodes a hexadecimal signing public key.
@@ -84,38 +101,41 @@ proc signingSeedFromHex*(hex: string): SigningSeed =
 
 proc generateSigningSeed*(): SigningSeed =
   ## Returns a new seed for deterministic signing key-pair generation.
-  SigningSeed(randomBytes(SigningSeedBytes))
+  SigningSeed(bytes: randomSecureBytes(SigningSeedBytes))
 
 proc generateSigningKeyPair*(): SigningKeyPair =
   ## Returns a new signing key pair.
   init.ensureInitialized()
 
   var publicKey = newString(SigningPublicKeyBytes)
-  var secretKey = newString(SigningSecretKeyBytes)
+  var secretKey = newSecureBytes(SigningSecretKeyBytes)
   let rc = sodium.Sodium.crypto_sign_keypair(
     bytes.unsafeCString(publicKey),
-    bytes.unsafeCString(secretKey)
+    secure_bytes.unsafeCString(secretKey)
   )
   if rc != 0:
     raise newException(CryptoError, "signing key pair generation failed")
   result.publicKey = SigningPublicKey(publicKey)
-  result.secretKey = SigningSecretKey(secretKey)
+  secretKey.protectReadOnly()
+  result.secretKey = SigningSecretKey(bytes: secretKey)
 
 proc generateSigningKeyPair*(seed: SigningSeed): SigningKeyPair =
   ## Returns the signing key pair deterministically derived from a seed.
   init.ensureInitialized()
 
   var publicKey = newString(SigningPublicKeyBytes)
-  var secretKey = newString(SigningSecretKeyBytes)
+  let seedData = seed.seedBytes()
+  var secretKey = newSecureBytes(SigningSecretKeyBytes)
   let rc = sodium.Sodium.crypto_sign_seed_keypair(
     bytes.unsafeCString(publicKey),
-    bytes.unsafeCString(secretKey),
-    bytes.unsafeCString(string(seed))
+    secure_bytes.unsafeCString(secretKey),
+    secure_bytes.unsafeCString(seedData)
   )
   if rc != 0:
     raise newException(CryptoError, "seeded signing key pair generation failed")
   result.publicKey = SigningPublicKey(publicKey)
-  result.secretKey = SigningSecretKey(secretKey)
+  secretKey.protectReadOnly()
+  result.secretKey = SigningSecretKey(bytes: secretKey)
 
 proc signingPublicKey*(secretKey: SigningSecretKey): SigningPublicKey =
   ## Extracts the public key from a signing secret key.
@@ -124,7 +144,7 @@ proc signingPublicKey*(secretKey: SigningSecretKey): SigningPublicKey =
   var publicKey = newString(SigningPublicKeyBytes)
   let rc = sodium.Sodium.crypto_sign_ed25519_sk_to_pk(
     bytes.unsafeCString(publicKey),
-    bytes.unsafeCString(string(secretKey))
+    secure_bytes.unsafeCString(secretKey.secretBytes())
   )
   if rc != 0:
     raise newException(CryptoError, "signing public key extraction failed")
@@ -134,14 +154,15 @@ proc signingSeed*(secretKey: SigningSecretKey): SigningSeed =
   ## Extracts the deterministic seed from a signing secret key.
   init.ensureInitialized()
 
-  var seed = newString(SigningSeedBytes)
+  var seed = newSecureBytes(SigningSeedBytes)
   let rc = sodium.Sodium.crypto_sign_ed25519_sk_to_seed(
-    bytes.unsafeCString(seed),
-    bytes.unsafeCString(string(secretKey))
+    secure_bytes.unsafeCString(seed),
+    secure_bytes.unsafeCString(secretKey.secretBytes())
   )
   if rc != 0:
     raise newException(CryptoError, "signing seed extraction failed")
-  SigningSeed(seed)
+  seed.protectReadOnly()
+  SigningSeed(bytes: seed)
 
 proc signDetached(message, secretKey: string): string =
   ## Signs a message and returns a detached signature.
@@ -167,7 +188,20 @@ proc signDetached(message, secretKey: string): string =
 
 proc signDetached*(message: string; secretKey: SigningSecretKey): string =
   ## Signs a message using a typed signing secret key.
-  signDetached(message, string(secretKey))
+  let secretData = secretKey.secretBytes()
+  init.ensureInitialized()
+
+  result = newString(SignatureBytes)
+  var signatureLen: culonglong
+  let rc = sodium.Sodium.crypto_sign_detached(
+    bytes.unsafeCString(result),
+    cast[pointer](addr signatureLen),
+    bytes.unsafeCString(message),
+    culonglong(message.len),
+    secure_bytes.unsafeCString(secretData)
+  )
+  if rc != 0 or signatureLen != culonglong(result.len):
+    raise newException(CryptoError, "signing failed")
 
 proc sign*(message: string; secretKey: SigningSecretKey): string =
   ## Signs a message and returns signature || message.
@@ -180,7 +214,7 @@ proc sign*(message: string; secretKey: SigningSecretKey): string =
     cast[pointer](addr signedLen),
     bytes.unsafeCString(message),
     culonglong(message.len),
-    bytes.unsafeCString(string(secretKey))
+    secure_bytes.unsafeCString(secretKey.secretBytes())
   )
   if rc != 0 or signedLen != culonglong(result.len):
     raise newException(CryptoError, "signing failed")

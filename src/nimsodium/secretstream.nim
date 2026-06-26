@@ -1,7 +1,7 @@
 import std/[os, streams]
 
 import ./errors
-import ./private/internal/[bytes, init]
+import ./private/internal/[bytes, init, secure_bytes]
 import ./private/raw/sodium
 import ./random
 
@@ -12,11 +12,20 @@ const
   DefaultStreamChunkBytes* = 64 * 1024
 
 type
-  StreamKey* = distinct string
+  StreamKey* = object
+    bytes: SecureBytes
 
 proc rawBytes*(key: StreamKey): string =
   ## Returns the raw bytes for storage by the application.
-  string(key)
+  secure_bytes.rawBytes(key.bytes)
+
+proc keyBytes(key: StreamKey): SecureBytes =
+  if key.bytes.len != StreamKeyBytes:
+    raise newException(
+      InvalidKeyError,
+      "stream key must be " & $StreamKeyBytes & " bytes"
+    )
+  key.bytes
 
 proc streamKeyFromBytes*(key: string): StreamKey =
   ## Wraps an existing stream key.
@@ -25,15 +34,17 @@ proc streamKeyFromBytes*(key: string): StreamKey =
       InvalidKeyError,
       "stream key must be " & $StreamKeyBytes & " bytes"
     )
-  StreamKey(key)
+  StreamKey(bytes: secureBytesFromBytes(key))
 
 proc generateStreamKey*(): StreamKey =
   ## Returns a new key for stream and file encryption.
   init.ensureInitialized()
 
-  var key = newString(StreamKeyBytes)
-  sodium.Sodium.crypto_secretstream_xchacha20poly1305_keygen(bytes.unsafeCString(key))
-  StreamKey(key)
+  result = StreamKey(bytes: newSecureBytes(StreamKeyBytes))
+  sodium.Sodium.crypto_secretstream_xchacha20poly1305_keygen(
+    secure_bytes.unsafeCString(result.bytes)
+  )
+  result.bytes.protectReadOnly()
 
 proc newState(): string =
   let stateBytes = int(sodium.Sodium.crypto_secretstream_xchacha20poly1305_statebytes())
@@ -82,7 +93,7 @@ proc encryptFile*(
   let initRc = sodium.Sodium.crypto_secretstream_xchacha20poly1305_init_push(
     bytes.unsafeAddr(state),
     bytes.unsafeCString(header),
-    bytes.unsafeCString(string(key))
+    secure_bytes.unsafeCString(key.keyBytes())
   )
   if initRc != 0:
     raise newException(CryptoError, "stream encryption initialization failed")
@@ -143,7 +154,7 @@ proc decryptFile*(
   let initRc = sodium.Sodium.crypto_secretstream_xchacha20poly1305_init_pull(
     bytes.unsafeAddr(state),
     bytes.unsafeCString(header),
-    bytes.unsafeCString(string(key))
+    secure_bytes.unsafeCString(key.keyBytes())
   )
   if initRc != 0:
     raise newException(CryptoError, "stream decryption initialization failed")

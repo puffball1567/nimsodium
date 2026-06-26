@@ -1,6 +1,6 @@
 import ./encoding
 import ./errors
-import ./private/internal/[bytes, init]
+import ./private/internal/[bytes, init, secure_bytes]
 import ./private/raw/sodium
 
 const
@@ -8,11 +8,20 @@ const
   ShortHashKeyBytes* = sodium.crypto_shorthash_KEYBYTES
 
 type
-  ShortHashKey* = distinct string
+  ShortHashKey* = object
+    bytes: SecureBytes
 
 proc rawBytes*(key: ShortHashKey): string =
   ## Returns the raw bytes for storage by the application.
-  string(key)
+  secure_bytes.rawBytes(key.bytes)
+
+proc keyBytes(key: ShortHashKey): SecureBytes =
+  if key.bytes.len != ShortHashKeyBytes:
+    raise newException(
+      InvalidKeyError,
+      "short hash key must be " & $ShortHashKeyBytes & " bytes"
+    )
+  key.bytes
 
 proc shortHashKeyFromBytes*(key: string): ShortHashKey =
   ## Wraps an existing short-hash key.
@@ -21,15 +30,15 @@ proc shortHashKeyFromBytes*(key: string): ShortHashKey =
       InvalidKeyError,
       "short hash key must be " & $ShortHashKeyBytes & " bytes"
     )
-  ShortHashKey(key)
+  ShortHashKey(bytes: secureBytesFromBytes(key))
 
 proc generateShortHashKey*(): ShortHashKey =
   ## Returns a new key suitable for shortHash and shortHashHex.
   init.ensureInitialized()
 
-  var key = newString(ShortHashKeyBytes)
-  sodium.Sodium.crypto_shorthash_keygen(bytes.unsafeCString(key))
-  ShortHashKey(key)
+  result = ShortHashKey(bytes: newSecureBytes(ShortHashKeyBytes))
+  sodium.Sodium.crypto_shorthash_keygen(secure_bytes.unsafeCString(result.bytes))
+  result.bytes.protectReadOnly()
 
 proc shortHash*(data: string; key: ShortHashKey): string =
   ## Computes a keyed short hash.
@@ -43,7 +52,7 @@ proc shortHash*(data: string; key: ShortHashKey): string =
     bytes.unsafeCString(result),
     bytes.unsafeCString(data),
     culonglong(data.len),
-    bytes.unsafeCString(string(key))
+    secure_bytes.unsafeCString(key.keyBytes())
   )
   if rc != 0:
     raise newException(CryptoError, "short hash failed")

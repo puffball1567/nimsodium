@@ -1,8 +1,7 @@
 import ./encoding
 import ./errors
-import ./private/internal/[bytes, init]
+import ./private/internal/[bytes, init, secure_bytes]
 import ./private/raw/sodium
-import ./random
 
 const
   GenericHashBytesMin* = sodium.crypto_generichash_BYTES_MIN
@@ -13,11 +12,20 @@ const
   GenericHashKeyBytes* = sodium.crypto_generichash_KEYBYTES
 
 type
-  KeyedHashKey* = distinct string
+  KeyedHashKey* = object
+    bytes: SecureBytes
 
 proc rawBytes*(key: KeyedHashKey): string =
   ## Returns the raw bytes for storage by the application.
-  string(key)
+  secure_bytes.rawBytes(key.bytes)
+
+proc keyBytes(key: KeyedHashKey): SecureBytes =
+  if key.bytes.len != GenericHashKeyBytes:
+    raise newException(
+      InvalidKeyError,
+      "keyedHash key must be " & $GenericHashKeyBytes & " bytes"
+    )
+  key.bytes
 
 proc keyedHashKeyFromBytes*(key: string): KeyedHashKey =
   ## Wraps an existing keyed-hash key.
@@ -26,7 +34,7 @@ proc keyedHashKeyFromBytes*(key: string): KeyedHashKey =
       InvalidKeyError,
       "keyedHash key must be " & $GenericHashKeyBytes & " bytes"
     )
-  KeyedHashKey(key)
+  KeyedHashKey(bytes: secureBytesFromBytes(key))
 
 proc genericHash*(data: string; length = GenericHashBytes): string =
   ## Hashes data with libsodium's generic hash function.
@@ -59,7 +67,7 @@ proc genericHashHex*(data: string; length = GenericHashBytes): string =
 
 proc generateKeyedHashKey*(): KeyedHashKey =
   ## Returns a new key suitable for keyedHash and keyedHashHex.
-  KeyedHashKey(randomBytes(GenericHashKeyBytes))
+  KeyedHashKey(bytes: randomSecureBytes(GenericHashKeyBytes))
 
 proc keyedHash(data, key: string; length = GenericHashBytes): string =
   ## Hashes data with an application-provided secret key.
@@ -94,7 +102,27 @@ proc keyedHash(data, key: string; length = GenericHashBytes): string =
 
 proc keyedHash*(data: string; key: KeyedHashKey; length = GenericHashBytes): string =
   ## Hashes data with a typed secret key.
-  keyedHash(data, string(key), length)
+  let keyData = key.keyBytes()
+  init.ensureInitialized()
+
+  if length < GenericHashBytesMin or length > GenericHashBytesMax:
+    raise newException(
+      InvalidInputError,
+      "keyed hash length must be between " & $GenericHashBytesMin &
+        " and " & $GenericHashBytesMax & " bytes"
+    )
+
+  result = newString(length)
+  let rc = sodium.Sodium.crypto_generichash(
+    bytes.unsafeCString(result),
+    csize_t(result.len),
+    bytes.unsafeCString(data),
+    culonglong(data.len),
+    secure_bytes.unsafeCString(keyData),
+    csize_t(keyData.len)
+  )
+  if rc != 0:
+    raise newException(CryptoError, "keyed hash failed")
 
 proc keyedHashHex(data, key: string; length = GenericHashBytes): string =
   ## Hashes data with a key and returns the digest encoded as hexadecimal.
@@ -102,4 +130,4 @@ proc keyedHashHex(data, key: string; length = GenericHashBytes): string =
 
 proc keyedHashHex*(data: string; key: KeyedHashKey; length = GenericHashBytes): string =
   ## Hashes data with a typed key and returns the digest encoded as hexadecimal.
-  keyedHashHex(data, string(key), length)
+  keyedHash(data, key, length).toHex()

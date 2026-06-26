@@ -22,8 +22,9 @@ buffers and return codes private.
 ## Why nimsodium?
 
 - Safer workflows: nonces are generated internally and stored with ciphertexts.
-- Misuse-resistant API: key material uses distinct Nim types instead of plain
-  strings at public call sites.
+- Misuse-resistant API: secret key material uses distinct Nim types backed by
+  libsodium secure heap allocation instead of plain strings at public call
+  sites.
 - Practical coverage: passwords, tokens, AEAD, file encryption, public-key
   encryption, signatures, KDF, random values, encoding, and cleanup helpers.
 - Clear layering: `import nimsodium` is the safe default; `import
@@ -57,7 +58,7 @@ pkg-config --modversion libsodium
 Then add `nimsodium` to your Nimble project:
 
 ```nim
-requires "nimsodium >= 0.2.0"
+requires "nimsodium >= 0.2.1"
 ```
 
 For local development before publication:
@@ -272,10 +273,9 @@ Current limitations:
   code may have already made copies.
 - Key values use distinct public types for supported high-level key material.
   Use `rawBytes` only when an application needs to persist or transmit a key.
-- Current key types are backed by Nim GC-managed strings. They reduce accidental
-  API misuse with distinct types, but they do not yet use `sodium_malloc`,
-  `sodium_mlock`, guard pages, or deterministic zero-on-drop storage. Treat
-  this as a pre-`v1.0` hardening item, not as secure enclave-like key storage.
+- High-level secret key types use libsodium secure heap allocation with memory
+  locking and read-only protection after initialization. `rawBytes` still
+  creates a normal Nim string and should be used only for explicit key export.
 
 Production checklist:
 

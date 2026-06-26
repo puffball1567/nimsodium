@@ -93,11 +93,10 @@ The wrapper checks:
 - Secure memory helpers only wipe the current string buffer.
 - Key values can be exported with `rawBytes`; applications remain responsible
   for secure key storage and for avoiding accidental copies.
-- Current key types are backed by Nim GC-managed strings. They reduce accidental
-  API misuse with distinct types, but they do not yet provide libsodium secure
-  heap allocation, `sodium_mlock`, guard pages, or deterministic zero-on-drop.
-  Applications with strict key-residency requirements should evaluate this
-  limitation before adopting the pre-`v1.0` API.
+- High-level secret key types use libsodium secure heap allocation with memory
+  locking and read-only protection after initialization. Exporting keys with
+  `rawBytes` intentionally creates a normal Nim string, so applications should
+  only do that when they need to persist or transmit key material.
 
 ## Recommended Review Before Production
 

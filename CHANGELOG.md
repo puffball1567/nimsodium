@@ -1,12 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 - Unreleased
 
 - Make libsodium opaque state declarations incomplete structs instead of
   incorrectly sized value objects.
 - Add selectable password hashing profiles while keeping the interactive
   profile as the default.
-- Document the current GC-managed key storage limitation more explicitly.
+- Move high-level secret key storage to libsodium secure heap allocation with
+  memory locking, read-only protection after initialization, and zeroing on
+  free.
+- Keep `rawBytes` as an explicit export operation. Default encryption,
+  authentication, signing, and key-exchange paths no longer use it internally.
 
 ## 0.2.0 - 2026-06-27
 

@@ -1,5 +1,6 @@
 import ./aead
 import ./errors
+import ./memory
 import ./private/internal/[bytes, init]
 import ./private/raw/sodium
 import ./random
@@ -74,7 +75,8 @@ proc derivePasswordAeadKey(
   if rc != 0:
     raise newException(CryptoError, "password key derivation failed")
 
-  aeadKeyFromBytes(key)
+  result = aeadKeyFromBytes(key)
+  secureClear(key)
 
 proc encryptWithPassword*(
     plaintext, password: string;
