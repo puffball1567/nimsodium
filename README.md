@@ -75,6 +75,27 @@ adoption, but API names and stored formats may still change before `v1.0`.
 The high-level API is intentionally small and the raw libsodium FFI is treated
 as an implementation detail.
 
+## C ABI
+
+`nimsodium` also includes an experimental C ABI for other languages that want
+the same high-level workflows without binding to Nim internals or raw
+libsodium.
+
+The C ABI exports `nimsodium_*` functions for password hashing, wallet-secret
+protection, wallet-secret file protection, and domain-separated off-chain
+Ed25519 signatures. It does **not** expose the raw libsodium FFI.
+
+Build and test it locally:
+
+```sh
+nimble buildCAbi
+nimble testCAbi
+```
+
+The public header is [`include/nimsodium.h`](include/nimsodium.h). Returned
+buffers use `nimsodium_buffer` and must be released with
+`nimsodium_free_buffer`.
+
 ## Quickstart
 
 ```nim
@@ -248,6 +269,8 @@ src/nimsodium/wallets.nim         wallet/application secret protection workflows
 src/nimsodium/version.nim         linked libsodium version helpers
 src/nimsodium/memory.nim          current-buffer zeroing helpers
 src/nimsodium/advanced.nim        opt-in advanced high-level API aggregate
+src/nimsodium_c.nim               experimental high-level C ABI
+include/nimsodium.h               public C ABI header
 src/nimsodium/private/raw/        internal libsodium FFI
 src/nimsodium/private/internal/   shared private helpers
 ```
