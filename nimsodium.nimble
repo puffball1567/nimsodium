@@ -1,4 +1,4 @@
-version       = "0.2.1"
+version       = "0.2.2"
 author        = "nimsodium contributors"
 description   = "Safe high-level libsodium wrapper for Nim applications"
 license       = "MIT"

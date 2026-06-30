@@ -59,7 +59,7 @@ pkg-config --modversion libsodium
 Then add `nimsodium` to your Nimble project:
 
 ```nim
-requires "nimsodium >= 0.2.1"
+requires "nimsodium >= 0.2.2"
 ```
 
 For local development before publication:

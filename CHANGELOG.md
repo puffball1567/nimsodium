@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.2 - 2026-06-30
+
+- Add wallet-secret protection workflows for encrypted wallet payloads,
+  encrypted wallet-secret files, and domain-separated off-chain Ed25519
+  messages.
+- Add an experimental high-level C ABI for selected safe workflows without
+  exposing raw libsodium FFI.
+- Add a public C header and C ABI smoke tests.
+- Document C ABI build and test commands.
+
 ## 0.2.1 - 2026-06-27
 
 - Make libsodium opaque state declarations incomplete structs instead of
