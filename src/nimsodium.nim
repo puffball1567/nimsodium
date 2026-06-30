@@ -24,6 +24,7 @@ import nimsodium/[
   secretbox,
   secretstream,
   tokens,
+  wallets,
   version
 ]
 
@@ -47,4 +48,5 @@ export aead,
   secretbox,
   secretstream,
   tokens,
+  wallets,
   version

@@ -7,7 +7,7 @@ Translations: [日本語](docs/README.ja.md), [Français](docs/README.fr.md),
 [한국어](docs/README.ko.md).
 
 Use it when you want password hashing, token fingerprints, authenticated
-encryption, file encryption, public-key sealed boxes, or signatures without
+encryption, file encryption, wallet-secret protection, public-key sealed boxes, or signatures without
 managing nonces, MAC tags, output buffers, or raw return codes.
 
 Use a raw libsodium binding instead when you need direct access to the full C
@@ -25,8 +25,9 @@ buffers and return codes private.
 - Misuse-resistant API: secret key material uses distinct Nim types backed by
   libsodium secure heap allocation instead of plain strings at public call
   sites.
-- Practical coverage: passwords, tokens, AEAD, file encryption, public-key
-  encryption, signatures, KDF, random values, encoding, and cleanup helpers.
+- Practical coverage: passwords, tokens, AEAD, file encryption, wallet-secret
+  protection, public-key encryption, signatures, KDF, random values, encoding,
+  and cleanup helpers.
 - Clear layering: `import nimsodium` is the safe default; `import
   nimsodium/advanced` is available for specialized high-level workflows.
 - libsodium underneath: cryptographic primitives are delegated to libsodium.
@@ -108,6 +109,8 @@ Hash binary data with custom length  genericHash / genericHashHex
 Hash files for checksums             sha256FileHex / sha512FileHex
 Encrypt with a password              encryptWithPassword / decryptWithPassword
 Encrypt files with a password        encryptFileWithPassword / decryptFileWithPassword
+Protect wallet/application secrets   protectWalletSecret / openProtectedWalletSecret
+Protect secret files                 encryptWalletSecretFile / decryptWalletSecretFile
 Encrypt database fields              generateAeadKey / encryptAead / decryptAead
 Encrypt small local secrets          generateSecretBoxKey / encryptSecretBox / decryptSecretBox
 Encrypt large files                  generateStreamKey / encryptFile / decryptFile
@@ -115,6 +118,7 @@ Send encrypted data to a public key  generateBoxKeyPair / sealBox / openBox
 Authenticate public-key sender       generateBoxKeyPair / encryptBox / decryptBox
 Regenerate public-key pairs          generateBoxSeed / generateSigningSeed
 Sign and verify messages             generateSigningKeyPair / sign / openSigned
+Sign off-chain app messages          signOffchainMessage / verifyOffchainMessage
 Sign and verify files                signFileDetached / verifyFileDetached
 Handle detached signatures           signDetached / verifyDetached
 Derive per-purpose keys              deriveAeadKey / deriveSecretBoxKey / deriveAuthKey
@@ -240,6 +244,7 @@ src/nimsodium/compare.nim         constant-time comparison
 src/nimsodium/encoding.nim        hex encoding
 src/nimsodium/base64.nim          URL-safe base64 encoding
 src/nimsodium/tokens.nim          application token workflow
+src/nimsodium/wallets.nim         wallet/application secret protection workflows
 src/nimsodium/version.nim         linked libsodium version helpers
 src/nimsodium/memory.nim          current-buffer zeroing helpers
 src/nimsodium/advanced.nim        opt-in advanced high-level API aggregate

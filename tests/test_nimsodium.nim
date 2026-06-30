@@ -744,6 +744,66 @@ suite "signatures":
       discard signingSecretKeyFromHex(toHex("short"))
     check not verifyDetached("message", "short", keys.publicKey)
 
+suite "wallet workflows":
+  test "wallet secret protection roundtrip keeps label as associated data":
+    let secret = walletSecretFromBytes("seed" & '\0' & "material")
+    let protected = protectWalletSecret(secret, "passphrase", "wallet:primary")
+    let opened = openProtectedWalletSecret(protected, "passphrase", "wallet:primary")
+
+    check rawBytes(opened) == "seed" & '\0' & "material"
+    check rawBytes(protected).len > rawBytes(secret).len
+
+    expect CryptoError:
+      discard openProtectedWalletSecret(protected, "wrong passphrase", "wallet:primary")
+    expect CryptoError:
+      discard openProtectedWalletSecret(protected, "passphrase", "wallet:other")
+
+  test "wallet secret generation and invalid inputs":
+    let secret = generateWalletSecret()
+    check rawBytes(secret).len == DefaultWalletSecretBytes
+    check generateWalletSecret(48).rawBytes().len == 48
+
+    expect InvalidInputError:
+      discard walletSecretFromBytes("")
+    expect ValueError:
+      discard generateWalletSecret(0)
+    expect InvalidInputError:
+      discard protectedWalletSecretFromBytes("")
+
+  test "wallet secret file protection rejects wrong label without replacing output":
+    let basePath = getCurrentDir() / "tests" / "tmp_wallet_secret"
+    let plainPath = basePath & ".plain"
+    let encryptedPath = basePath & ".enc"
+    let outPath = basePath & ".out"
+    defer:
+      for path in [plainPath, encryptedPath, outPath]:
+        if fileExists(path):
+          removeFile(path)
+
+    writeFile(plainPath, "wallet-file-secret" & '\0' & "payload")
+    encryptWalletSecretFile(plainPath, encryptedPath, "passphrase", "wallet:file")
+    writeFile(outPath, "existing")
+
+    expect CryptoError:
+      decryptWalletSecretFile(encryptedPath, outPath, "passphrase", "wallet:other")
+    check readFile(outPath) == "existing"
+
+    decryptWalletSecretFile(encryptedPath, outPath, "passphrase", "wallet:file")
+    check readFile(outPath) == "wallet-file-secret" & '\0' & "payload"
+
+  test "off-chain signatures are domain separated":
+    let keys = generateSigningKeyPair()
+    let signature = signOffchainMessage("approve payload", "example-wallet", keys.secretKey)
+
+    check signature.len == SignatureBytes
+    check verifyOffchainMessage("approve payload", "example-wallet", signature, keys.publicKey)
+    check not verifyOffchainMessage("approve payload", "other-domain", signature, keys.publicKey)
+    check not verifyOffchainMessage("other payload", "example-wallet", signature, keys.publicKey)
+    check not verifyDetached("approve payload", signature, keys.publicKey)
+    expect InvalidInputError:
+      discard signOffchainMessage("message", "", keys.secretKey)
+    check not verifyOffchainMessage("message", "", signature, keys.publicKey)
+
 suite "version":
   test "libsodium version is available":
     check sodiumVersion().len > 0
