@@ -15,12 +15,12 @@ let cAbiTest = cAbiBuildRoot / "test_nimsodium_c_abi"
 
 task buildCAbi, "build the experimental nimsodium C ABI shared library":
   exec "mkdir -p " & cAbiBuildRoot
-  exec "nim c --app:lib --path:src --nimcache:" & cAbiBuildRoot / "nimcache" &
+  exec "nim c --mm:arc --app:lib --path:src --nimcache:" & cAbiBuildRoot / "nimcache" &
     " --out:" & cAbiLib & " src/nimsodium_c.nim"
 
 task testCAbi, "build and run the C ABI smoke test":
   exec "mkdir -p " & cAbiBuildRoot
-  exec "nim c --app:lib --path:src --nimcache:" & cAbiBuildRoot / "nimcache" &
+  exec "nim c --mm:arc --app:lib --path:src --nimcache:" & cAbiBuildRoot / "nimcache" &
     " --out:" & cAbiLib & " src/nimsodium_c.nim"
   exec "gcc -Iinclude tests/test_c_abi.c -L" & cAbiBuildRoot &
     " -lnimsodium_c -Wl,-rpath," & cAbiBuildRoot & " -o " & cAbiTest

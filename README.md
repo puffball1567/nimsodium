@@ -92,6 +92,9 @@ nimble buildCAbi
 nimble testCAbi
 ```
 
+The build task compiles the shared library with Nim ARC memory management for
+embedding through foreign runtimes.
+
 The public header is [`include/nimsodium.h`](include/nimsodium.h). Returned
 buffers use `nimsodium_buffer` and must be released with
 `nimsodium_free_buffer`.
