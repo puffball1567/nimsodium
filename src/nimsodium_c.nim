@@ -78,7 +78,7 @@ proc nimsodium_c_abi_version*(): cstring {.cexport.} =
   cstring(NimsodiumCVersion)
 
 proc nimsodium_package_version*(): cstring {.cexport.} =
-  cstring("0.2.1")
+  cstring("0.2.3")
 
 proc nimsodium_libsodium_version*(): cstring {.cexport.} =
   try:
