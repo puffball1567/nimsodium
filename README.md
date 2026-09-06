@@ -59,7 +59,7 @@ pkg-config --modversion libsodium
 Then add `nimsodium` to your Nimble project:
 
 ```nim
-requires "nimsodium >= 0.2.2"
+requires "nimsodium >= 0.2.3"
 ```
 
 For local development before publication:
@@ -74,6 +74,9 @@ This project is a `v0.2` pre-release. It is intended for evaluation and early
 adoption, but API names and stored formats may still change before `v1.0`.
 The high-level API is intentionally small and the raw libsodium FFI is treated
 as an implementation detail.
+
+CI validates the public workflows with both the distribution-provided
+libsodium and a checksum-pinned source build of libsodium 1.0.22.
 
 ## C ABI
 

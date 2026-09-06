@@ -103,7 +103,7 @@ Current high-level behavior:
 - libsodium initialization is delegated to `sodium_init` on each operation,
   avoiding wrapper-level first-call races
 
-## FFI Checked For v0.1
+## FFI Checked For v0.2.3
 
 The current high-level API directly uses this libsodium surface:
 
@@ -171,8 +171,15 @@ sodium_library_version_minor
 sodium_memzero
 ```
 
-These signatures were checked against the local `sodium.h` from libsodium, and
-the internal FFI module compiled with Nim 2.2.10.
+The complete high-level workflow suite and experimental C ABI were compiled,
+linked, and executed against a source build of libsodium 1.0.22 with Nim
+2.2.10. The same suite remains tested against the distribution-provided
+libsodium as a compatibility lane. No stored format changed in this update.
+
+libsodium 1.0.22 adds new cryptographic families, including SHA-3 and
+post-quantum key encapsulation. They are not exposed automatically: each new
+public nimsodium workflow still requires a separate API and misuse-resistance
+review.
 
 ## Known FFI Caveat
 

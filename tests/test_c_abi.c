@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "nimsodium.h"
@@ -30,9 +31,24 @@ static int expect_true(int condition, const char *message) {
 
 int main(void) {
   if (expect_ok(nimsodium_init(), "init failed")) return 1;
-  if (expect_true(nimsodium_c_abi_version() != NULL, "missing C ABI version")) return 1;
-  if (expect_true(nimsodium_package_version() != NULL, "missing package version")) return 1;
-  if (expect_true(nimsodium_libsodium_version() != NULL, "missing libsodium version")) return 1;
+  if (expect_true(
+        strcmp(nimsodium_c_abi_version(), "0.1.0") == 0,
+        "unexpected C ABI version"
+      )) return 1;
+  if (expect_true(
+        strcmp(nimsodium_package_version(), "0.2.3") == 0,
+        "unexpected package version"
+      )) return 1;
+
+  const char *libsodium_version = nimsodium_libsodium_version();
+  if (expect_true(libsodium_version != NULL, "missing libsodium version")) return 1;
+  const char *expected_libsodium = getenv("NIMSODIUM_EXPECTED_LIBSODIUM");
+  if (expected_libsodium != NULL && expected_libsodium[0] != '\0') {
+    if (expect_true(
+          strcmp(libsodium_version, expected_libsodium) == 0,
+          "unexpected libsodium version"
+        )) return 1;
+  }
 
   const uint8_t password[] = {'p', 'a', 's', 's', 0, 'w', 'o', 'r', 'd'};
   nimsodium_buffer hash = {0};

@@ -1,4 +1,4 @@
-version       = "0.2.2"
+version       = "0.2.3"
 author        = "nimsodium contributors"
 description   = "Safe high-level libsodium wrapper for Nim applications"
 license       = "MIT"
@@ -19,9 +19,4 @@ task buildCAbi, "build the experimental nimsodium C ABI shared library":
     " --out:" & cAbiLib & " src/nimsodium_c.nim"
 
 task testCAbi, "build and run the C ABI smoke test":
-  exec "mkdir -p " & cAbiBuildRoot
-  exec "nim c --mm:arc --app:lib --path:src --nimcache:" & cAbiBuildRoot / "nimcache" &
-    " --out:" & cAbiLib & " src/nimsodium_c.nim"
-  exec "gcc -Iinclude tests/test_c_abi.c -L" & cAbiBuildRoot &
-    " -lnimsodium_c -Wl,-rpath," & cAbiBuildRoot & " -o " & cAbiTest
-  exec cAbiTest
+  exec "bash tests/run_c_abi.sh"

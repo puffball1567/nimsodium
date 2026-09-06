@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.3 - 2026-09-06
+
+- Verify all existing high-level workflows and the experimental C ABI against
+  libsodium 1.0.22.
+- Add a checksum-pinned CI lane that builds and tests against libsodium 1.0.22
+  in addition to the distribution-provided version.
+- Assert the exact linked libsodium version in pinned-version tests.
+- Fix the experimental C ABI package-version query, which still reported
+  0.2.1 after the 0.2.2 release, and cover both ABI version strings in tests.
+- Build the experimental C ABI with ARC and make its smoke test honor
+  `pkg-config` link flags for non-system libsodium installations.
+- Document package version selection independently from libsodium's version.
+
 ## 0.2.2 - 2026-06-30
 
 - Add wallet-secret protection workflows for encrypted wallet payloads,

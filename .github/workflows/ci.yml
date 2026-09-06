@@ -6,15 +6,45 @@ on:
 
 jobs:
   test:
+    name: Linux · libsodium ${{ matrix.libsodium }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        libsodium:
+          - system
+          - "1.0.22"
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install system dependencies
+      - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsodium-dev pkg-config
+          sudo apt-get install -y build-essential curl pkg-config
+
+      - name: Install system libsodium
+        if: matrix.libsodium == 'system'
+        run: sudo apt-get install -y libsodium-dev
+
+      - name: Build libsodium 1.0.22
+        if: matrix.libsodium == '1.0.22'
+        env:
+          SODIUM_SHA256: adbdd8f16149e81ac6078a03aca6fc03b592b89ef7b5ed83841c086191be3349
+        run: |
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            https://github.com/jedisct1/libsodium/releases/download/1.0.22-RELEASE/libsodium-1.0.22.tar.gz \
+            --output "$RUNNER_TEMP/libsodium-1.0.22.tar.gz"
+          echo "$SODIUM_SHA256  $RUNNER_TEMP/libsodium-1.0.22.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/libsodium-1.0.22.tar.gz" -C "$RUNNER_TEMP"
+          cd "$RUNNER_TEMP/libsodium-1.0.22"
+          ./configure --prefix="$RUNNER_TEMP/libsodium"
+          make -j2
+          make install
+          echo "PKG_CONFIG_PATH=$RUNNER_TEMP/libsodium/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "LIBRARY_PATH=$RUNNER_TEMP/libsodium/lib" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$RUNNER_TEMP/libsodium/lib" >> "$GITHUB_ENV"
+          echo "NIMSODIUM_EXPECTED_LIBSODIUM=1.0.22" >> "$GITHUB_ENV"
 
       - name: Check libsodium
         run: pkg-config --modversion libsodium
@@ -37,6 +67,9 @@ jobs:
 
       - name: Run tests
         run: nim c -r --path:src --nimcache:/tmp/nimsodium_nimcache tests/test_nimsodium.nim
+
+      - name: Run C ABI smoke test
+        run: nimble testCAbi
 
       - name: Compile examples
         run: |

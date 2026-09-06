@@ -2,6 +2,17 @@
 
 Use this checklist before publishing a `nimsodium` release.
 
+## Version Selection
+
+Choose the package version from the effect on nimsodium users rather than by
+copying libsodium's version number:
+
+- use a patch release for compatible fixes or verification against a newer
+  libsodium release when nimsodium's public API and behavior do not change
+- use a minor release for backward-compatible public workflow additions
+- before 1.0, also use a minor release for breaking public API or stored-format
+  changes; after 1.0, use a major release for those changes
+
 ## Package Metadata
 
 - Confirm the repository URL and issue tracker are final.

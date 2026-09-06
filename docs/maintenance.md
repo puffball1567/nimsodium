@@ -34,6 +34,11 @@ When libsodium changes:
 6. Add a changelog entry if user-visible behavior or supported versions
    changed.
 
+CI currently builds libsodium 1.0.22 from the official release archive and
+checks its SHA-256 digest before running the complete workflow and C ABI test
+suites. The distribution-provided libsodium remains a separate compatibility
+lane.
+
 ## API Expansion
 
 Prefer workflow additions over raw symbol exposure.

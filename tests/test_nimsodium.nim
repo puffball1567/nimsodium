@@ -810,6 +810,11 @@ suite "version":
     check sodiumVersionMajor() >= 0
     check sodiumVersionMinor() >= 0
 
+  test "linked libsodium matches the requested test version":
+    let expectedVersion = getEnv("NIMSODIUM_EXPECTED_LIBSODIUM")
+    if expectedVersion.len > 0:
+      check sodiumVersion() == expectedVersion
+
 suite "advanced":
   test "key exchange derives matching client and server session keys":
     let client = generateKeyExchangeKeyPair()
