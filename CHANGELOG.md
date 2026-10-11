@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.4 - 2026-10-11
+
+- Correct private libsodium version constants to match the verified 1.0.22
+  release headers, including ABI major/minor metadata.
+- Clarify that these constants describe the header baseline; public version
+  queries continue to report the actual linked libsodium runtime.
+- Update the experimental C ABI package-version query to 0.2.4.
+
 ## 0.2.3 - 2026-09-06
 
 - Verify all existing high-level workflows and the experimental C ABI against
