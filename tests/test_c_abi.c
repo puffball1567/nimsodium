@@ -36,7 +36,7 @@ int main(void) {
         "unexpected C ABI version"
       )) return 1;
   if (expect_true(
-        strcmp(nimsodium_package_version(), "0.2.3") == 0,
+        strcmp(nimsodium_package_version(), "0.2.4") == 0,
         "unexpected package version"
       )) return 1;
 

@@ -270,9 +270,11 @@ const
   sodium_base64_VARIANT_ORIGINAL_NO_PADDING* = 3
   sodium_base64_VARIANT_URLSAFE* = 5
   sodium_base64_VARIANT_URLSAFE_NO_PADDING* = 7
-  SODIUM_VERSION_STRING* = "1.0.18"
-  SODIUM_LIBRARY_VERSION_MAJOR* = 10
-  SODIUM_LIBRARY_VERSION_MINOR* = 3
+  # Header metadata for libsodium 1.0.22; linked runtime versions are queried
+  # through nimsodium/version rather than inferred from these constants.
+  SODIUM_VERSION_STRING* = "1.0.22"
+  SODIUM_LIBRARY_VERSION_MAJOR* = 26
+  SODIUM_LIBRARY_VERSION_MINOR* = 4
 
 # Macros (function-like)
 template SODIUM_MIN*(A, B: untyped): untyped =
